@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖片隱寫術</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { display: block; margin-top: 10px; max-width: 100%; }
+    </style>
+</head>
+<body>
+    <h1>圖片隱寫術</h1>
+    <input type="file" id="imageUpload" accept="image/*">
+    <textarea id="hiddenText" placeholder="輸入要隱藏的訊息" rows="4" cols="50"></textarea>
+    <button onclick="encodeMessage()">嵌入訊息</button>
+    <button onclick="decodeMessage()">解碼訊息</button>
+    <br>
+    <canvas id="canvas"></canvas>
+    <br>
+    <button id="downloadButton" style="display:none" onclick="downloadImage()">下載圖片</button>
+    <p id="decodedText" style="white-space: pre-wrap;"></p>
+    
+    <script>
+        let image = null;
+        document.getElementById('imageUpload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    image = new Image();
+                    image.src = e.target.result;
+                    image.onload = function() {
+                        const canvas = document.getElementById('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = image.width;
+                        canvas.height = image.height;
+                        ctx.drawImage(image, 0, 0);
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function encodeMessage() {
+            const text = document.getElementById('hiddenText').value + "\0"; // 加入終止符號
+            if (!image || !text) return;
+            
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            for (let i = 0; i < text.length && i * 4 < data.length; i++) {
+                data[i * 4] = text.charCodeAt(i); // 將 ASCII 值存入紅色通道
+            }
+            ctx.putImageData(imageData, 0, 0);
+            
+            document.getElementById('downloadButton').style.display = 'block';
+        }
+        
+        function decodeMessage() {
+            if (!image) return;
+            
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            let message = "";
+            for (let i = 0; i < data.length; i += 4) {
+                if (data[i] === 0) break; // 遇到終止符號則停止
+                message += String.fromCharCode(data[i]);
+            }
+            
+            document.getElementById('decodedText').innerText = "解碼訊息: " + message;
+        }
+        
+        function downloadImage() {
+            const canvas = document.getElementById('canvas');
+            const link = document.createElement('a');
+            link.href = canvas.toDataURL("image/png");
+            link.download = "encoded.png";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
